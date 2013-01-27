@@ -90,20 +90,24 @@ def deploy(force_version=None):
              '-E UTF8 %s') % (db_template, bundle_name))
 
     if 'migrations' in env:
-        if env.migrations != 'nashvegas':
-            die("%s is not supported for migrations." % env.migrations)
-        manage('upgradedb -l', noinput=False)  # This creates the migration
-                                               # tables
+        if env.migrations == 'nashvegas':
+            manage('upgradedb -l', noinput=False)  # This creates the migration
+                                                   # tables
 
-        installed = run('psql -U postgres %s -c "select id from '
-                        'nashvegas_migration limit 1;"' % bundle_name)
-        installed = '0 rows' not in installed
-        if installed:
-            manage('upgradedb -e', noinput=False)
+            installed = sudo('sudo -u postgres psql -U postgres %s -c "select id from '
+                            'nashvegas_migration limit 1;"' % bundle_name)
+            installed = '0 rows' not in installed
+            if installed:
+                manage('upgradedb -e', noinput=False)
+            else:
+                # 1st deploy, force syncdb and seed migrations.
+                manage('syncdb')
+                manage('upgradedb -s', noinput=False)
+        elif env.migrations == 'south':
+            manage('migrate')
         else:
-            # 1st deploy, force syncdb and seed migrations.
-            manage('syncdb')
-            manage('upgradedb -s', noinput=False)
+            die("%s is not supported for migrations." % env.migrations)
+
     else:
         manage('syncdb')
 
