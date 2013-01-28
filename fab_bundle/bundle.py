@@ -6,6 +6,44 @@ from fabric.contrib.files import exists
 from .utils import die, err, yay, template
 
 
+def database_creation(env):
+    bundle_name = env.http_host
+    result = run('psql -U postgres -l|grep UTF8')
+    if bundle_name not in result:
+        if 'gis' in env and env.gis is False:
+            db_template = 'template0'
+        else:
+            db_template = 'template_postgis'
+        run(('createdb -U postgres -T %s '
+             '-E UTF8 %s') % (db_template, bundle_name))
+
+
+def database_migration(env):
+    bundle_name = env.http_host
+    if 'migrations' in env:
+        if env.migrations == 'nashvegas':
+            manage('upgradedb -l', noinput=False)  # This creates the migration
+                                                   # tables
+
+            installed = run('psql -U postgres %s -c "select id from '
+                            'nashvegas_migration limit 1;"' % bundle_name)
+            installed = '0 rows' not in installed
+            if installed:
+                manage('upgradedb -e', noinput=False)
+            else:
+                # 1st deploy, force syncdb and seed migrations.
+                manage('syncdb')
+                manage('upgradedb -s', noinput=False)
+        elif env.migrations == 'south':
+            manage('syncdb')
+            manage('migrate')
+        else:
+            die("%s is not supported for migrations." % env.migrations)
+
+    else:
+        manage('syncdb')
+
+
 @task()
 def deploy(force_version=None):
     """Deploys to the current bundle"""
@@ -80,36 +118,8 @@ def deploy(force_version=None):
     template('wsgi.py', '%s/wsgi.py' % bundle_root)
 
     # Do we have a DB?
-    result = run('psql -U postgres -l|grep UTF8')
-    if bundle_name not in result:
-        if 'gis' in env and env.gis is False:
-            db_template = 'template0'
-        else:
-            db_template = 'template_postgis'
-        run(('createdb -U postgres -T %s '
-             '-E UTF8 %s') % (db_template, bundle_name))
-
-    if 'migrations' in env:
-        if env.migrations == 'nashvegas':
-            manage('upgradedb -l', noinput=False)  # This creates the migration
-                                                   # tables
-
-            installed = sudo('sudo -u postgres psql -U postgres %s -c "select id from '
-                            'nashvegas_migration limit 1;"' % bundle_name)
-            installed = '0 rows' not in installed
-            if installed:
-                manage('upgradedb -e', noinput=False)
-            else:
-                # 1st deploy, force syncdb and seed migrations.
-                manage('syncdb')
-                manage('upgradedb -s', noinput=False)
-        elif env.migrations == 'south':
-            manage('migrate')
-        else:
-            die("%s is not supported for migrations." % env.migrations)
-
-    else:
-        manage('syncdb')
+    database_creation()
+    database_migration()
 
     if env.staticfiles:
         manage('collectstatic')
