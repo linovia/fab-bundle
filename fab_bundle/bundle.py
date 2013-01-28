@@ -6,27 +6,60 @@ from fabric.contrib.files import exists
 from .utils import die, err, yay, template
 
 
-def database_creation(env):
+def postgres(cmd):
+    db_user = '-U postgres'
+    if hasattr(env, 'postgres'):
+        if 'admin' in env.postgres:
+            db_user = '-U %s' % env.postgres['admin']
+        if 'hostname' in env.postgres:
+            db_user += ' -h %s' % env.postgres['hostname']
+    return run(cmd % db_user)
+
+
+def choose_postgres_template():
+    if 'gis' in env and env.gis is False:
+        return 'template0'
+    else:
+        return 'template_postgis'
+
+
+def database_creation():
     bundle_name = env.http_host
-    result = run('psql -U postgres -l|grep UTF8')
-    if bundle_name not in result:
-        if 'gis' in env and env.gis is False:
-            db_template = 'template0'
-        else:
-            db_template = 'template_postgis'
-        run(('createdb -U postgres -T %s '
-             '-E UTF8 %s') % (db_template, bundle_name))
+    installed_dbs = postgres('psql %s -l|grep UTF8')
+    installed_dbs = [db.split('|')[0].strip() for db in installed_dbs.split('\n')]
+
+    print installed_dbs
+
+    db_template = choose_postgres_template()
+
+    if env.databases:
+        for database in env.databases.values():
+            if database['NAME'] in installed_dbs:
+                continue
+            args = [
+                '%s',
+                '-T %s' % db_template,
+                '-E UTF8',
+            ]
+            if 'USER' in database:
+                args.append(' -O %s' % database['USER'])
+            args.append(bundle_name)
+            postgres('createdb ' + ' '.join(args))
+    else:
+        if bundle_name not in installed_dbs:
+            postgres(('createdb %s -T %s '
+                 '-E UTF8 %s') % ('%s', db_template, bundle_name))
 
 
-def database_migration(env):
+def database_migration():
     bundle_name = env.http_host
     if 'migrations' in env:
         if env.migrations == 'nashvegas':
             manage('upgradedb -l', noinput=False)  # This creates the migration
                                                    # tables
 
-            installed = run('psql -U postgres %s -c "select id from '
-                            'nashvegas_migration limit 1;"' % bundle_name)
+            installed = postgres('psql %s %s -c "select id from '
+                            'nashvegas_migration limit 1;"' % ('%s', bundle_name))
             installed = '0 rows' not in installed
             if installed:
                 manage('upgradedb -e', noinput=False)
