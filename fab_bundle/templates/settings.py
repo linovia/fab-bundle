@@ -1,13 +1,15 @@
-from {{ base_settings }} import *
+{% if base_settings %}from {{ base_settings }} import *{% endif %}
 
 DEBUG = False
-TEMPLATE_DEBUG = DEBUG
+TEMPLATE_DEBUG = True
 
 ADMINS = ({% for admin in admins %}
     ('{{ admin.name }}', '{{ admin.email }}'),{% endfor %}
 )
 MANAGERS = ADMINS
 SEND_BROKEN_LINK_EMAILS = True
+
+ALLOWED_HOSTS = ["{{ http_host }}", "www.{{ http_host }}"]
 
 SECRET_KEY = '{{ secret_key }}'
 
