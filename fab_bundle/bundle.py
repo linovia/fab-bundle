@@ -28,8 +28,6 @@ def database_creation():
     installed_dbs = postgres('psql %s -l|grep UTF8')
     installed_dbs = [db.split('|')[0].strip() for db in installed_dbs.split('\n')]
 
-    print installed_dbs
-
     db_template = choose_postgres_template()
 
     if env.databases:
@@ -75,6 +73,61 @@ def database_migration():
 
     else:
         manage('syncdb')
+
+
+def handle_rq(bundle_name, bundle_root, env):
+    # RQ forks processes and they load the latest version of the code.
+    # No need to restart the worker **unless** RQ has been updated (TODO).
+    for worker_id in range(env.rq['workers']):
+        env.worker_id = worker_id
+        template(
+            'rq.conf', '%s/conf/rq%s.conf' % (bundle_root, worker_id),
+        )
+        with cd('/etc/supervisor/conf.d'):
+            sudo('ln -sf %s/conf/rq%s.conf %s_worker%s.conf' % (
+                bundle_root, worker_id, bundle_name, worker_id,
+            ))
+
+    # Scale down workers if the number decreased
+    workers = run('ls /etc/supervisor/conf.d/%s_worker*.conf' % bundle_name)
+    workers_conf = run('ls %s/conf/rq*.conf' % bundle_root)
+    to_delete = []
+    for w in workers.split():
+        if int(w.split('%s_worker' % bundle_name, 1)[1][:-5]) >= env.rq['workers']:
+            to_delete.append(w)
+    for w in workers_conf.split():
+        if int(w.split(bundle_name, 1)[1][8:-5]) >= env.rq['workers']:
+            to_delete.append(w)
+    if to_delete:
+        sudo('rm %s' % " ".join(to_delete))
+
+
+def handle_celery(bundle_name, bundle_root, env):
+    for worker_id, worker in enumerate(env.celery['workers']):
+        env.worker_id = worker_id
+        worker_args = ['--%s' % (k,) if isinstance(v, bool) else '--%s=%s' % (k, v) for k, v in worker.items()]
+        env.worker_args = ' '.join(worker_args)
+        template(
+            'celery.conf', '%s/conf/celery%04i.conf' % (bundle_root, worker_id),
+        )
+        with cd('/etc/supervisor/conf.d'):
+            sudo('ln -sf %s/conf/celery%04i.conf %s_worker%04i.conf' % (
+                bundle_root, worker_id, bundle_name, worker_id,
+            ))
+    env.worker_id = None
+
+    # Scale down workers if the number decreased
+    workers = run('ls /etc/supervisor/conf.d/%s_worker*.conf' % bundle_name)
+    workers_conf = run('ls %s/conf/celery*.conf' % bundle_root)
+    to_delete = []
+    # for w in workers.split():
+    #     if int(w.split('%s_worker' % bundle_name, 1)[1][:-5]) >= env.rq['workers']:
+    #         to_delete.append(w)
+    # for w in workers_conf.split():
+    #     if int(w.split(bundle_name, 1)[1][8:-5]) >= env.rq['workers']:
+    #         to_delete.append(w)
+    # if to_delete:
+    #     sudo('rm %s' % " ".join(to_delete))
 
 
 @task()
@@ -199,31 +252,11 @@ def deploy(force_version=None):
 
     if 'rq' in env and env.rq:
         changed = True  # Always supervisorctl update
+        handle_rq(bundle_name, bundle_root, env)
 
-        # RQ forks processes and they load the latest version of the code.
-        # No need to restart the worker **unless** RQ has been updated (TODO).
-        for worker_id in range(env.rq['workers']):
-            env.worker_id = worker_id
-            rq_changed = template(
-                'rq.conf', '%s/conf/rq%s.conf' % (bundle_root, worker_id),
-            )
-            with cd('/etc/supervisor/conf.d'):
-                sudo('ln -sf %s/conf/rq%s.conf %s_worker%s.conf' % (
-                    bundle_root, worker_id, bundle_name, worker_id,
-                ))
-
-        # Scale down workers if the number decreased
-        workers = run('ls /etc/supervisor/conf.d/%s_worker*.conf' % bundle_name)
-        workers_conf = run('ls %s/conf/rq*.conf' % bundle_root)
-        to_delete = []
-        for w in workers.split():
-            if int(w.split('%s_worker' % bundle_name, 1)[1][:-5]) >= env.rq['workers']:
-                to_delete.append(w)
-        for w in workers_conf.split():
-            if int(w.split(bundle_name, 1)[1][8:-5]) >= env.rq['workers']:
-                to_delete.append(w)
-        if to_delete:
-            sudo('rm %s' % " ".join(to_delete))
+    if 'celery' in env and env.celery:
+        changed = True
+        handle_celery(bundle_name, bundle_root, env)
 
     if changed:
         sudo('supervisorctl update')

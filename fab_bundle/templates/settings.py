@@ -41,6 +41,10 @@ RQ = {
 {% endif %}
 {% endif %}
 
+{% if celery %}
+BROKER_URL = {{ celery.BROKER_URL }}
+{% endif %}
+
 {% if databases %}
 DATABASES = {
     {% for short_name, database in databases.iteritems() %}

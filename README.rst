@@ -193,7 +193,7 @@ then rotated, so it's up to you to back them up offsite if you need to.
 Migrations
 ``````````
 
-Only Nashvegas is currently supported.
+Nashvegas and South are supported.
 
 ::
 
@@ -208,6 +208,14 @@ Note that you need to provide the path to your migrations in
         os.path.abspath(os.path.dirname(__file__)),
         'migrations',
     )
+
+
+::
+
+    def production():
+        # ...
+        env.migrations = 'south'
+
 
 Staticfiles
 ```````````
@@ -277,6 +285,41 @@ following setting will be added (the number will vary depending on
     }
 
 Make sure you use the DB id from this setting when you enqueue new tasks.
+
+
+Celery tasks
+````````````
+
+Celery is supported. At the moment, only Redis backend is supported.
+You can set it up with like this::
+
+    def production():
+        # ...
+        env.celery = {
+            'BROKER_URL': 'redis://localhost:6379/1',
+            'workers': [
+                {
+                    'app': 'myproject.celery',
+                    'hostname': 'nameoftheworker.%h',
+                    'concurrency': 4,
+                    'events': True,
+                }, {
+                    'app': 'myproject.celery',
+                    'concurrency': 2,
+                }
+            ]
+        }
+
+
+This will configure Django with the redis broker and two workers.
+Any entry in the workers dictionnary will be passed to the celery worker
+invocation. In our case, we'll get the equivalent of ::
+
+    $ celery --app=myproject.celery --hostname=nameoftheworker.%h --concurrency=4 --events
+    $ celery --app=myproject.celery --concurrency=2
+
+Please note that keys with a boolean set to True will appear without arguments.
+
 
 Custom settings
 ```````````````
