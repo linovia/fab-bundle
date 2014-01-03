@@ -41,7 +41,7 @@ def database_creation():
             ]
             if 'USER' in database:
                 args.append(' -O %s' % database['USER'])
-            args.append(bundle_name)
+            args.append(database['NAME'])
             postgres('createdb ' + ' '.join(args))
     else:
         if bundle_name not in installed_dbs:
