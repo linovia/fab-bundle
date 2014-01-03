@@ -42,7 +42,7 @@ RQ = {
 {% endif %}
 
 {% if celery %}
-BROKER_URL = {{ celery.BROKER_URL }}
+BROKER_URL = '{{ celery.BROKER_URL }}'
 {% endif %}
 
 {% if databases %}
