@@ -50,7 +50,7 @@ DATABASES = {
     {% for short_name, database in databases.iteritems() %}
     '{{short_name}}': { {% for key, value in database.iteritems() %}
         '{{key}}': '{{value}}',{% endfor %}
-    }
+    },
     {% endfor %}
 }
 {% else %}
