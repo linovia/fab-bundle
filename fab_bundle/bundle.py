@@ -196,7 +196,11 @@ def deploy(force_version=None):
     )
 
     env.media_root = bundle_root + '/public/media'
+    if 'media_url' not in env:
+        env.media_url = '/media/'
     env.static_root = bundle_root + '/public/static'
+    if 'static_url' not in env:
+        env.static_url = '/static/'
     if not 'staticfiles' in env:
         env.staticfiles = True
     if not 'cache' in env:

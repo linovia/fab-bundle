@@ -15,11 +15,11 @@ SECRET_KEY = '{{ secret_key }}'
 
 BASE_URL = 'http{% if ssl_cert %}s{% endif %}://{{ http_host }}'
 MEDIA_ROOT = '{{ media_root }}'
-MEDIA_URL = BASE_URL + '/media/'
+MEDIA_URL = BASE_URL + '{{ media_url }}'
 
 {% if staticfiles %}
 STATIC_ROOT = '{{ static_root }}'
-STATIC_URL = BASE_URL + '/static/'
+STATIC_URL = BASE_URL + '{{ static_url }}'
 {% endif %}
 
 {% if cache >= 0 %}
