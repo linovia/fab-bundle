@@ -242,7 +242,7 @@ def deploy(force_version=None):
                                                     env.http_host))
     with cd('/etc/nginx/sites-enabled'):
         sudo('ln -sf ../sites-available/%s.conf' % env.http_host)
-    if 'ssl_cert' in env and 'ssl_key' in env:
+    if env.get('ssl_cert') and env.get('ssl_key'):
         put(env.ssl_cert, '%s/conf/ssl.crt' % bundle_root)
         put(env.ssl_key, '%s/conf/ssl.key' % bundle_root)
     if changed:  # TODO detect if the certs have changed
