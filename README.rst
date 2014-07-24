@@ -380,6 +380,13 @@ support by setting ``env.gis``::
 
     env.gis = False
 
+
+Virtual IP
+``````````
+
+You can configure the website to use a dedicated IP. This is required if you
+have several sites that are using SSL.
+
 Rolling back
 ------------
 
