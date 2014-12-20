@@ -141,16 +141,23 @@ def deploy(force_version=None):
     run('mkdir -p %s/{log,conf,public}' % bundle_root)
 
     # virtualenv, Packages
+    python_switch = ''
+    if hasattr(env, 'python'):
+        python_switch = '--python=%s' % getattr(env, 'python')
     if not exists(bundle_root + '/env'):
-        run('virtualenv --no-site-packages %s/env' % bundle_root)
+        run('virtualenv %s --no-site-packages %s/env' % (
+            python_switch, bundle_root))
     run('%s/env/bin/pip install -U pip' % bundle_root)
 
+    #####
+    # Generate local package
     local('python setup.py sdist')
     dists = [
         d for d in os.listdir(os.path.join(os.getcwd(),
                                            'dist')) if d.endswith('.tar.gz')
     ]
     version_string = lambda d: d.rsplit('-', 1)[1][:-7]
+
     def int_or_s(num):
         try:
             return int(num)
@@ -166,6 +173,8 @@ def deploy(force_version=None):
     run('mkdir -p %s' % packages)
     if not exists('%s/%s' % (packages, dist)):
         put('dist/%s' % dist, '%s/%s' % (packages, dist))
+    # End of local package
+    #####
 
     has_vendor = 'vendor' in os.listdir(os.getcwd())
     if has_vendor:
