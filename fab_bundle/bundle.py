@@ -134,6 +134,9 @@ def setup_nginx():
     if env.get('ssl_cert') and env.get('ssl_key'):
         put(env.ssl_cert, '%s/conf/ssl.crt' % env.bundle_root)
         put(env.ssl_key, '%s/conf/ssl.key' % env.bundle_root)
+    if env.get('remote_ssl'):
+        env.ssl_cert = env.remote_ssl + ".crt"
+        env.ssl_key = env.remote_ssl + ".key"
     if changed:  # TODO detect if the certs have changed
         sudo('/etc/init.d/nginx reload')
 
