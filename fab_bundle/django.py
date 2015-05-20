@@ -30,6 +30,8 @@ def database_migration():
         elif env.migrations == 'south':
             manage('syncdb')
             manage('migrate')
+        elif env.migrations == 'migrations':
+            manage('migrate')
         else:
             die("%s is not supported for migrations." % env.migrations)
 
